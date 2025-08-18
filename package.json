@@ -1,6 +1,6 @@
 {
   "name": "ms-event-stream",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A NestJS package that provides a plug-and-play event system for microservices with outbox/inbox patterns, Redis streams, and reliable event processing",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
