@@ -34,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anshulyadav13/ms-event-stream.git"
+    "url": "git@github.com:anshulyadav13/ms-event-stream.git"
   },
   "bugs": {
     "url": "https://github.com/anshulyadav13/ms-event-stream/issues"
