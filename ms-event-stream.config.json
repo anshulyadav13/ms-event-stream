@@ -1,0 +1,13 @@
+{
+  "serviceName": "example-service",
+  "dbUrl": "postgresql://username:password@localhost:5432/events_db",
+  "redisUrl": "redis://localhost:6379",
+  "env": "dev",
+  "logLevel": "info",
+  "retryAttempts": 3,
+  "retryDelay": 1000,
+  "archiveRetentionDays": 30,
+  "maxParallelHandlers": 10,
+  "batchSize": 1000,
+  "healthCheckTimeout": 5000
+}
