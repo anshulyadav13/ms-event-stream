@@ -15,8 +15,9 @@ For domain-specific integration guides (e.g. the notification microservice), see
 5. [Adding a New Stream](#adding-a-new-stream)
 6. [Stream Naming Standard](#stream-naming-standard)
 7. [Error Handling](#error-handling)
-8. [Local Development with Docker](#local-development-with-docker)
-9. [License](#license)
+8. [Using a Custom Redis Client](#using-a-custom-redis-client)
+9. [Local Development with Docker](#local-development-with-docker)
+10. [License](#license)
 
 ---
 
@@ -41,7 +42,7 @@ import { StreamsModule } from 'ms-event-stream';
 @Module({
   imports: [
     StreamsModule.forRootAsync({
-      useFactory: (redisService: RedisService) => redisService.getEventClient(),
+      useFactory: (redisService: RedisService) => () => redisService.getEventClient(),
       inject: [RedisService],
     }),
   ],
@@ -67,65 +68,9 @@ export class StreamsModuleWrapper {}
 
 `StreamBusService` is then available everywhere without per-module imports.
 
-### 3. Manual `IStreamRedis` implementation (only if not using ioredis)
+That’s it. `StreamBusService` is now available everywhere in the microservice. The package handles `xadd`, `xreadGroup`, `xack`, `xautoclaim`, `xpending`, and `xlen` internally.
 
-Your `RedisService` must implement the `IStreamRedis` interface (7 methods: `xadd`, `xgroupCreate`, `xreadGroup`, `xack`, `xautoclaim`, `xpending`, `xlen`). All stream operations should use the **event Redis client** (not the cache client).
-
-```typescript
-// src/common/redis/redis.service.ts (excerpt)
-import { IStreamRedis, StreamEntry } from 'ms-event-stream';
-
-@Injectable()
-export class RedisService implements IStreamRedis, OnModuleInit {
-  private eventClient: Redis; // ioredis instance for streams
-
-  async xadd(stream: string, fields: Record<string, string>, maxlen?: number): Promise<string> {
-    const args = [];
-    if (maxlen) args.push('MAXLEN', '~', maxlen);
-    args.push('*');
-    for (const [k, v] of Object.entries(fields)) args.push(k, v);
-    return this.eventClient.xadd(stream, ...args);
-  }
-
-  async xgroupCreate(stream: string, group: string, startId: string, mkstream = true): Promise<void> {
-    try {
-      await this.eventClient.xgroup('CREATE', stream, group, startId, mkstream ? 'MKSTREAM' : '');
-    } catch (e) {
-      if (!String(e).includes('BUSYGROUP')) throw e; // group already exists — OK
-    }
-  }
-
-  async xreadGroup(stream, group, consumer, count, block): Promise<StreamEntry[]> { /* ... */ }
-  async xack(stream, group, ...ids): Promise<number> { /* ... */ }
-  async xautoclaim(stream, group, consumer, minIdle, cursor, count): Promise<{ entries: StreamEntry[]; nextCursor: string }> { /* ... */ }
-  async xpending(stream, group, start, end, count): Promise<unknown[]> { /* ... */ }
-  async xlen(stream): Promise<number> { /* ... */ }
-}
-```
-
-See `src/stream-redis.interface.ts` for the full interface.
-
-### 4. Register the module (custom IStreamRedis only)
-
-```typescript
-// src/common/streams/streams.module.ts
-import { Global, Module } from '@nestjs/common';
-import { StreamsModule, STREAM_REDIS } from 'ms-event-stream';
-import { RedisService } from '../redis/redis.service';
-
-@Global()
-@Module({
-  imports: [
-    StreamsModule.forRoot({
-      streamRedis: { provide: STREAM_REDIS, useExisting: RedisService },
-    }),
-  ],
-  exports: [StreamsModule],
-})
-export class StreamsModuleWrapper {}
-```
-
-Import `StreamsModuleWrapper` in your `AppModule`. Because it is `@Global()`, `StreamBusService` is available everywhere without per-module imports.
+> **What if I don’t use ioredis?** See [Using a custom Redis client](#using-a-custom-redis-client) below.
 
 ---
 
@@ -366,6 +311,56 @@ Inspect the DLQ:
 ```bash
 redis-cli XRANGE order:placed:dlq - +
 ```
+
+---
+
+## Using a Custom Redis Client
+
+Only needed if your microservice uses a Redis client **other than ioredis**. In that case, implement `IStreamRedis` once and pass it to `StreamsModule.forRoot()`.
+
+```typescript
+// src/common/redis/redis.service.ts (excerpt)
+import { IStreamRedis, StreamEntry } from 'ms-event-stream';
+
+@Injectable()
+export class RedisService implements IStreamRedis, OnModuleInit {
+  private eventClient: Redis; // your Redis client for streams
+
+  async xadd(stream: string, fields: Record<string, string>, maxlen?: number): Promise<string> {
+    // your client's XADD logic
+  }
+
+  async xgroupCreate(stream: string, group: string, startId: string, mkstream = true): Promise<void> {
+    // your client's XGROUP CREATE logic
+  }
+
+  async xreadGroup(stream, group, consumer, count, block): Promise<StreamEntry[]> { /* ... */ }
+  async xack(stream, group, ...ids): Promise<number> { /* ... */ }
+  async xautoclaim(stream, group, consumer, minIdle, cursor, count): Promise<{ entries: StreamEntry[]; nextCursor: string }> { /* ... */ }
+  async xpending(stream, group, start, end, count): Promise<unknown[]> { /* ... */ }
+  async xlen(stream): Promise<number> { /* ... */ }
+}
+```
+
+```typescript
+// src/common/streams/streams.module.ts
+import { Global, Module } from '@nestjs/common';
+import { StreamsModule, STREAM_REDIS } from 'ms-event-stream';
+import { RedisService } from '../redis/redis.service';
+
+@Global()
+@Module({
+  imports: [
+    StreamsModule.forRoot({
+      streamRedis: { provide: STREAM_REDIS, useExisting: RedisService },
+    }),
+  ],
+  exports: [StreamsModule],
+})
+export class StreamsModuleWrapper {}
+```
+
+See `src/stream-redis.interface.ts` for the full contract.
 
 ---
 

@@ -1,15 +1,28 @@
 import Redis from "ioredis";
 import { IStreamRedis, StreamEntry } from "./stream-redis.interface";
 
+type RedisClientOrFactory = Redis | (() => Redis);
+
 /**
  * Default IStreamRedis adapter for ioredis.
  *
  * This makes the `ms-event-stream` package usable out of the box: a producer
  * or consumer just needs to provide its ioredis event client. No custom
  * `IStreamRedis` implementation is required.
+ *
+ * Accepts either a Redis client directly or a factory function so the client
+ * can be resolved lazily (useful when the client is not ready at module
+ * initialization time, e.g. a NestJS RedisService that connects in onModuleInit).
  */
 export class IorRedisStreamAdapter implements IStreamRedis {
-  constructor(private readonly client: Redis) {}
+  constructor(private readonly clientOrFactory: RedisClientOrFactory) {}
+
+  private getClient(): Redis {
+    if (typeof this.clientOrFactory === "function") {
+      return this.clientOrFactory();
+    }
+    return this.clientOrFactory;
+  }
 
   async xadd(
     stream: string,
@@ -24,7 +37,7 @@ export class IorRedisStreamAdapter implements IStreamRedis {
     for (const [k, v] of Object.entries(fields)) {
       args.push(k, v);
     }
-    return this.client.xadd(stream, ...args) as Promise<string>;
+    return this.getClient().xadd(stream, ...args) as Promise<string>;
   }
 
   async xgroupCreate(
@@ -36,7 +49,7 @@ export class IorRedisStreamAdapter implements IStreamRedis {
     try {
       const args = ["CREATE", stream, group, startId];
       if (mkstream) args.push("MKSTREAM");
-      await (this.client as any).xgroup(...args);
+      await (this.getClient() as any).xgroup(...args);
     } catch (error) {
       if (!String(error).includes("BUSYGROUP")) {
         throw error;
@@ -51,7 +64,7 @@ export class IorRedisStreamAdapter implements IStreamRedis {
     count: number,
     blockMs: number,
   ): Promise<StreamEntry[]> {
-    const reply = (await this.client.xreadgroup(
+    const reply = (await this.getClient().xreadgroup(
       "GROUP",
       group,
       consumer,
@@ -85,7 +98,7 @@ export class IorRedisStreamAdapter implements IStreamRedis {
   }
 
   async xack(stream: string, group: string, ...ids: string[]): Promise<number> {
-    return this.client.xack(stream, group, ...ids);
+    return this.getClient().xack(stream, group, ...ids);
   }
 
   async xautoclaim(
@@ -96,7 +109,7 @@ export class IorRedisStreamAdapter implements IStreamRedis {
     startId: string,
     count: number,
   ): Promise<{ nextCursor: string; entries: StreamEntry[] }> {
-    const reply = (await this.client.xautoclaim(
+    const reply = (await this.getClient().xautoclaim(
       stream,
       group,
       consumer,
@@ -128,12 +141,12 @@ export class IorRedisStreamAdapter implements IStreamRedis {
     end: string,
     count: number,
   ): Promise<Array<[string, string, number, number]>> {
-    return this.client.xpending(stream, group, start, end, count) as Promise<
+    return this.getClient().xpending(stream, group, start, end, count) as Promise<
       Array<[string, string, number, number]>
     >;
   }
 
   async xlen(stream: string): Promise<number> {
-    return this.client.xlen(stream);
+    return this.getClient().xlen(stream);
   }
 }
