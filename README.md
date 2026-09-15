@@ -4,6 +4,8 @@ Shared Redis Streams publish/consume library for nestys microservices.
 
 Provides standardized stream naming, typed payloads, consumer groups, crash recovery (XAUTOCLAIM), and dead-letter queues (DLQ) — so every microservice communicates the same way without duplicating Redis Streams logic.
 
+For domain-specific integration guides (e.g. the notification microservice), see the consuming service's own README.
+
 ---
 
 ## Quick Start
@@ -36,7 +38,7 @@ export class RedisService implements IStreamRedis, OnModuleInit {
 
   async xgroupCreate(stream: string, group: string, startId: string, mkstream = true): Promise<void> {
     try {
-      await this.eventClient.xgroup('CREATE', stream, group, startId, mkstack ? 'MKSTREAM' : '');
+      await this.eventClient.xgroup('CREATE', stream, group, startId, mkstream ? 'MKSTREAM' : '');
     } catch (e) {
       if (!String(e).includes('BUSYGROUP')) throw e; // group already exists — OK
     }
@@ -72,104 +74,52 @@ import { RedisService } from '../redis/redis.service';
 export class StreamsModuleWrapper {}
 ```
 
-Import `StreamsModuleWrapper` in your `AppModule`. Because it's `@Global()`, `StreamBusService` is available everywhere without per-module imports.
+Import `StreamsModuleWrapper` in your `AppModule`. Because it is `@Global()`, `StreamBusService` is available everywhere without per-module imports.
 
 ---
 
 ## Publishing Events
 
-### Recommended: use `NotificationPublisher` in your microservice
+### Recommended: create a typed publisher in your microservice
 
-Each microservice that publishes notifications should have a dedicated `NotificationPublisher` service (separate from the generic `ServiceIntegrationService` HTTP client). It injects `StreamBusService` and exposes typed methods for push, email, and FCM token lifecycle:
+Each microservice should create a small, typed publisher that wraps `StreamBusService` and exposes methods for the streams it owns. Keep this publisher local to your service; it is not part of `ms-event-stream`.
 
 ```typescript
-// src/common/services/notification-publisher.service.ts
+// src/common/services/order-publisher.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  StreamBusService,
-  StreamNames,
-  DeviceTokenRegisterPayload,
-  DeviceTokenRemovePayload,
-  NotificationDispatchPayload,
-} from 'ms-event-stream';
+import { StreamBusService, StreamNames } from 'ms-event-stream';
 
 @Injectable()
-export class NotificationPublisher {
-  private readonly logger = new Logger(NotificationPublisher.name);
+export class OrderPublisherService {
+  private readonly logger = new Logger(OrderPublisherService.name);
 
   constructor(private readonly streamBus: StreamBusService) {}
 
-  /** Send a push notification (channel = PUSH) */
-  async sendPushNotification(params: {
-    userId: number;
-    templateId: string;
-    idempotencyKey: string;
-    locale?: string;
-    templateParams?: Record<string, unknown>;
-  }): Promise<boolean> {
-    const names = StreamNames.notificationDispatch();
+  async orderPlaced(data: { orderId: string; userId: number; total: number }) {
+    const names = StreamNames.orderPlaced();
     await this.streamBus.publish(names.stream, {
-      userId: params.userId,
-      channel: 'PUSH',
-      idempotencyKey: params.idempotencyKey,
-      templateId: params.templateId,
-      locale: params.locale || 'en',
-      params: params.templateParams,
-    } as NotificationDispatchPayload);
-    return true;
-  }
-
-  /** Send an email notification (channel = EMAIL) */
-  async sendEmailNotification(params: {
-    userId: number;
-    toEmail: string;
-    templateId: string;
-    idempotencyKey: string;
-    locale?: string;
-    templateParams?: Record<string, unknown>;
-  }): Promise<boolean> {
-    const names = StreamNames.notificationDispatch();
-    await this.streamBus.publish(names.stream, {
-      userId: params.userId,
-      channel: 'EMAIL',
-      idempotencyKey: params.idempotencyKey,
-      toEmail: params.toEmail,
-      templateId: params.templateId,
-      locale: params.locale || 'en',
-      params: params.templateParams,
-    } as NotificationDispatchPayload);
-    return true;
-  }
-
-  /** Register an FCM device token (called on login) */
-  async registerFcmToken(userId: number, token: string, deviceId: string, platform: string) {
-    const names = StreamNames.notificationDeviceTokenRegister();
-    await this.streamBus.publish(names.stream, { userId, token, deviceId, platform } as DeviceTokenRegisterPayload);
-  }
-
-  /** Remove an FCM device token (called on logout) */
-  async removeFcmToken(userId: number, token: string) {
-    const names = StreamNames.notificationDeviceTokenRemove();
-    await this.streamBus.publish(names.stream, { userId, token } as DeviceTokenRemovePayload);
+      orderId: data.orderId,
+      userId: data.userId,
+      total: data.total,
+    });
+    this.logger.log(`order.placed published for user ${data.userId}`);
   }
 }
 ```
 
-Register it in a module:
+Register it locally:
 
 ```typescript
-// src/common/services/notification-publisher.module.ts
+// src/common/services/order-publisher.module.ts
 import { Module } from '@nestjs/common';
-import { NotificationPublisher } from './notification-publisher.service';
+import { OrderPublisherService } from './order-publisher.service';
 
 @Module({
-  providers: [NotificationPublisher],
-  exports: [NotificationPublisher],
+  providers: [OrderPublisherService],
+  exports: [OrderPublisherService],
 })
-export class NotificationPublisherModule {}
+export class OrderPublisherModule {}
 ```
-
-`StreamBusService` is registered globally by `StreamsModuleWrapper`, so no explicit import is needed in the module.
 
 ### Direct publishing (low-level)
 
@@ -183,14 +133,12 @@ import { StreamBusService, StreamNames } from 'ms-event-stream';
 export class SomeService {
   constructor(private readonly streamBus: StreamBusService) {}
 
-  async sendNotification(userId: number) {
-    const names = StreamNames.notificationDispatch();
+  async sendSomething(userId: number) {
+    const names = StreamNames.someEvent();
     await this.streamBus.publish(names.stream, {
       userId,
-      channel: 'PUSH',
-      idempotencyKey: `order-${userId}-${Date.now()}`,
-      templateId: 'order.confirmed.push',
-      locale: 'en',
+      event: 'some.action',
+      idempotencyKey: `some:${userId}:${Date.now()}`,
     });
   }
 }
@@ -215,34 +163,24 @@ import {
   StreamBusService,
   StreamNames,
   StreamConsumerHandle,
-  NotificationDispatchPayload,
 } from 'ms-event-stream';
 
 @Injectable()
-export class NotificationDispatchConsumer implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(NotificationDispatchConsumer.name);
+export class OrderPlacedConsumer implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(OrderPlacedConsumer.name);
   private handle: StreamConsumerHandle | null = null;
 
-  constructor(
-    private readonly streamBus: StreamBusService,
-    private readonly dispatchService: DispatchService,
-  ) {}
+  constructor(private readonly streamBus: StreamBusService) {}
 
   async onModuleInit() {
-    const names = StreamNames.notificationDispatch();
-    this.handle = await this.streamBus.startConsumer<NotificationDispatchPayload>({
+    const names = StreamNames.orderPlaced();
+    this.handle = await this.streamBus.startConsumer({
       stream: names.stream,
       group: names.group,
       dlq: names.dlq,
       handler: async (payload, entryId) => {
-        this.logger.log(`Received dispatch for user ${payload.userId}`);
-        await this.dispatchService.dispatch({
-          userId: Number(payload.userId),
-          channel: payload.channel,
-          idempotencyKey: payload.idempotencyKey,
-          title: payload.title,
-          body: payload.body,
-        });
+        this.logger.log(`Received order for user ${payload.userId}`);
+        // application logic here
       },
     });
   }
@@ -253,7 +191,7 @@ export class NotificationDispatchConsumer implements OnModuleInit, OnModuleDestr
 }
 ```
 
-Register the consumer in your module's `providers` array. The consumer group, polling, ACK, reclaim sweep, and DLQ are all handled automatically.
+Register the consumer in your module's `providers` array. The consumer group, polling, ACK, reclaim sweep, and DLQ are handled automatically.
 
 ### Consumer options
 
@@ -269,7 +207,7 @@ Register the consumer in your module's `providers` array. The consumer group, po
 | `blockMs` | `2000` | Long-poll block duration |
 | `reclaimIntervalMs` | `30000` | How often to run the reclaim sweep |
 | `minIdleMs` | `60000` | Min idle time before a message is considered stuck |
-| `maxDeliveryCount` | `5` | Max attempts before moving to DLQ |
+| `maxDeliveryCount` | `5` | Max attempts before moving to the DLQ |
 
 ---
 
@@ -279,45 +217,33 @@ A single microservice can publish and consume simultaneously. Just call `startCo
 
 ```typescript
 @Injectable()
-export class AuthStreamOrchestrator implements OnModuleInit, OnModuleDestroy {
-  private profileHandle: StreamConsumerHandle | null = null;
+export class OrderStreamOrchestrator implements OnModuleInit, OnModuleDestroy {
+  private orderHandle: StreamConsumerHandle | null = null;
 
   constructor(private readonly streamBus: StreamBusService) {}
 
   async onModuleInit() {
-    // Consumer: listen for user profile updates
-    const names = StreamNames.userProfileUpdated();
-    this.profileHandle = await this.streamBus.startConsumer<UserProfileUpdatedPayload>({
+    const names = StreamNames.orderPlaced();
+    this.orderHandle = await this.streamBus.startConsumer({
       stream: names.stream,
       group: names.group,
       dlq: names.dlq,
       handler: async (payload) => {
-        await this.cacheService.invalidate(`user:${payload.userId}`);
+        // handle order placed event
       },
     });
   }
 
-  // Publisher: called from auth.service.ts on login
-  async publishFcmToken(userId: number, token: string, deviceId: string, platform: string) {
-    const names = StreamNames.notificationDeviceTokenRegister();
-    await this.streamBus.publish(names.stream, { userId, token, deviceId, platform });
+  async publishOrderPlaced(orderId: string, userId: number, total: number) {
+    const names = StreamNames.orderPlaced();
+    await this.streamBus.publish(names.stream, { orderId, userId, total });
   }
 
   onModuleDestroy() {
-    this.profileHandle?.stop();
+    this.orderHandle?.stop();
   }
 }
 ```
-
----
-
-## Available Streams
-
-| Stream | Group | Publisher | Consumer | Payload |
-|---|---|---|---|---|
-| `notification:dispatch:stream` | `notification-workers` | auth MS, user MS, any MS | notification MS | `NotificationDispatchPayload` |
-| `notification:device-token:register:stream` | `notification-device-token-register-workers` | auth MS, user MS | notification MS | `DeviceTokenRegisterPayload` |
-| `notification:device-token:remove:stream` | `notification-device-token-remove-workers` | auth MS, user MS | notification MS | `DeviceTokenRemovePayload` |
 
 ---
 
@@ -326,11 +252,11 @@ export class AuthStreamOrchestrator implements OnModuleInit, OnModuleDestroy {
 ### Step 1 — Add stream names in `src/stream-names.ts`
 
 ```typescript
-static userProfileUpdated(): StreamNameSet {
+static orderPlaced(): StreamNameSet {
   return {
-    stream: 'user:profile-updated:stream',
-    group: 'user-profile-updated-workers',
-    dlq: 'user:profile-updated:dlq',
+    stream: 'order:placed:stream',
+    group: 'order-placed-workers',
+    dlq: 'order:placed:dlq',
   };
 }
 ```
@@ -338,18 +264,17 @@ static userProfileUpdated(): StreamNameSet {
 ### Step 2 — Add a typed payload in `src/stream-payloads.ts`
 
 ```typescript
-export interface UserProfileUpdatedPayload {
+export interface OrderPlacedPayload {
+  orderId: string;
   userId: number;
-  email?: string;
-  username?: string;
-  updatedAt: string;
+  total: number;
 }
 ```
 
 ### Step 3 — Export from `src/index.ts`
 
 ```typescript
-export { UserProfileUpdatedPayload } from './stream-payloads';
+export { OrderPlacedPayload } from './stream-payloads';
 ```
 
 ### Step 4 — Rebuild
@@ -370,9 +295,9 @@ Consumer group:  {consumer-service}-{resource}-{action}-workers
 DLQ:             {consumer-service}:{resource}:{action}:dlq
 ```
 
-- `consumer-service` — the microservice that consumes (e.g. `notification`)
-- `resource` — the domain resource (e.g. `dispatch`, `device-token`)
-- `action` — what's being done (e.g. `register`, `remove`)
+- `consumer-service` — the microservice that consumes (e.g. `notification`, `order`)
+- `resource` — the domain resource (e.g. `dispatch`, `placed`)
+- `action` — what's being done (e.g. `register`, `placed`)
 
 ---
 
@@ -388,7 +313,7 @@ The handler is called **without a try/catch** — intentionally:
 Inspect the DLQ:
 
 ```bash
-redis-cli XRANGE notification:dispatch:dlq - +
+redis-cli XRANGE order:placed:dlq - +
 ```
 
 ---
