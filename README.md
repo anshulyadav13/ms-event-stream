@@ -42,7 +42,7 @@ import { StreamsModule } from 'ms-event-stream';
 @Module({
   imports: [
     StreamsModule.forRootAsync({
-      useFactory: (redisService: RedisService) => () => redisService.getEventClient(),
+      useFactory: (redisService: RedisService) => redisService,
       inject: [RedisService],
     }),
   ],

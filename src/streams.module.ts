@@ -3,7 +3,17 @@ import Redis from "ioredis";
 import { StreamBusService } from "./stream-bus.service";
 import { IorRedisStreamAdapter } from "./ioredis-stream-adapter";
 
-type RedisClientOrFactory = Redis | (() => Redis);
+/**
+ * A microservice Redis service that exposes the event ioredis client.
+ * The package will call `getEventClient()` only when it actually needs to
+ * perform a Redis stream operation, so the client does not need to be ready
+ * at module initialization time.
+ */
+export interface IorRedisClientProvider {
+  getEventClient(): Redis;
+}
+
+type RedisClientSource = Redis | IorRedisClientProvider;
 
 /**
  * Injection token for the IStreamRedis implementation.
@@ -61,10 +71,9 @@ export class StreamsModule {
 
   /**
    * Convenience factory for services that already have an ioredis client.
-   * Pass the event Redis client directly, or a factory function that returns
-   * the client lazily.
+   * Pass the event Redis client directly.
    */
-  static forRootIoredis(client: RedisClientOrFactory): DynamicModule {
+  static forRootIoredis(client: Redis): DynamicModule {
     return this.forRoot({
       streamRedis: {
         provide: STREAM_REDIS,
@@ -77,16 +86,20 @@ export class StreamsModule {
    * Async factory. Useful when the ioredis client is only available via
    * another service (e.g. `redisService.getEventClient()`).
    *
-   * useFactory may return the client directly, or a function that returns the
-   * client lazily. The lazy form is needed when the client is not ready at
-   * module initialization time (e.g. it connects in `onModuleInit`).
+   * `useFactory` may return:
+   * - a `Redis` client directly, or
+   * - a microservice `RedisService` that has a `getEventClient()` method.
+   *
+   * The second form is the cleanest: it lets the package call
+   * `redisService.getEventClient()` only when a stream operation actually runs,
+   * so the client does not need to be connected at module initialization time.
    */
   static forRootAsync(options: {
     useFactory: (
       ...args: any[]
     ) =>
-      | Promise<RedisClientOrFactory>
-      | RedisClientOrFactory;
+      | Promise<RedisClientSource>
+      | RedisClientSource;
     inject?: any[];
   }): DynamicModule {
     return {
@@ -96,7 +109,13 @@ export class StreamsModule {
           provide: STREAM_REDIS,
           useFactory: async (...args: any[]) => {
             const resolved = await options.useFactory(...args);
-            return new IorRedisStreamAdapter(resolved);
+
+            const provider = resolved as IorRedisClientProvider;
+            if (typeof provider.getEventClient === "function") {
+              return new IorRedisStreamAdapter(() => provider.getEventClient());
+            }
+
+            return new IorRedisStreamAdapter(resolved as Redis);
           },
           inject: options.inject,
         },
