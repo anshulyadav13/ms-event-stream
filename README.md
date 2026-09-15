@@ -16,7 +16,46 @@ For domain-specific integration guides (e.g. the notification microservice), see
 npm install ms-event-stream
 ```
 
-### 2. Implement `IStreamRedis` in your microservice's `RedisService`
+### 2. Quick Start with ioredis
+
+If your microservice already has an ioredis client for the event Redis, you do not need to implement `IStreamRedis` yourself. The package provides `IorRedisStreamAdapter` automatically.
+
+```typescript
+// src/common/streams/streams.module.ts
+import { Global, Module } from '@nestjs/common';
+import { StreamsModule } from 'ms-event-stream';
+
+@Global()
+@Module({
+  imports: [
+    StreamsModule.forRootAsync({
+      useFactory: (redisService: RedisService) => redisService.getEventClient(),
+      inject: [RedisService],
+    }),
+  ],
+  exports: [StreamsModule],
+})
+export class StreamsModuleWrapper {}
+```
+
+If you already have a `Redis` instance at module configuration time:
+
+```typescript
+import Redis from 'ioredis';
+
+const redisClient = new Redis({ host: process.env.REDIS_EVENT_HOST });
+
+@Global()
+@Module({
+  imports: [StreamsModule.forRootIoredis(redisClient)],
+  exports: [StreamsModule],
+})
+export class StreamsModuleWrapper {}
+```
+
+`StreamBusService` is then available everywhere without per-module imports.
+
+### 3. Implement `IStreamRedis` in your microservice's `RedisService`
 
 Your `RedisService` must implement the `IStreamRedis` interface (7 methods: `xadd`, `xgroupCreate`, `xreadGroup`, `xack`, `xautoclaim`, `xpending`, `xlen`). All stream operations should use the **event Redis client** (not the cache client).
 
@@ -54,7 +93,7 @@ export class RedisService implements IStreamRedis, OnModuleInit {
 
 See `src/stream-redis.interface.ts` for the full interface.
 
-### 3. Register the module
+### 4. Register the module (custom IStreamRedis only)
 
 ```typescript
 // src/common/streams/streams.module.ts

@@ -38,6 +38,7 @@
 
 export { StreamBusService } from "./stream-bus.service";
 export { StreamsModule, STREAM_REDIS } from "./streams.module";
+export { IorRedisStreamAdapter } from "./ioredis-stream-adapter";
 export { StreamNames, StreamNameSet } from "./stream-names";
 export {
   NotificationDispatchPayload,
