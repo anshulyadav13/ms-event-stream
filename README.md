@@ -6,6 +6,18 @@ Provides standardized stream naming, typed payloads, consumer groups, crash reco
 
 For domain-specific integration guides (e.g. the notification microservice), see the consuming service's own README.
 
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Publishing Events](#publishing-events)
+3. [Consuming Events](#consuming-events)
+4. [A Service Can Be Both Publisher and Consumer](#a-service-can-be-both-publisher-and-consumer)
+5. [Adding a New Stream](#adding-a-new-stream)
+6. [Stream Naming Standard](#stream-naming-standard)
+7. [Error Handling](#error-handling)
+8. [Local Development with Docker](#local-development-with-docker)
+9. [License](#license)
+
 ---
 
 ## Quick Start
@@ -55,7 +67,7 @@ export class StreamsModuleWrapper {}
 
 `StreamBusService` is then available everywhere without per-module imports.
 
-### 3. Implement `IStreamRedis` in your microservice's `RedisService`
+### 3. Manual `IStreamRedis` implementation (only if not using ioredis)
 
 Your `RedisService` must implement the `IStreamRedis` interface (7 methods: `xadd`, `xgroupCreate`, `xreadGroup`, `xack`, `xautoclaim`, `xpending`, `xlen`). All stream operations should use the **event Redis client** (not the cache client).
 
