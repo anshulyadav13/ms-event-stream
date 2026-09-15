@@ -1,5 +1,5 @@
 /**
- * @nestys/stream-bus — Shared Redis Streams publish/consume service
+ * ms-event-stream — Shared Redis Streams publish/consume service
  *
  * Provides a standardized, typed way for nestys microservices to communicate
  * via Redis Streams with consumer groups, crash recovery (XAUTOCLAIM), and

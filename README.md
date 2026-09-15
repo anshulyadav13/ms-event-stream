@@ -1,4 +1,4 @@
-# @nestys/stream-bus
+# ms-event-stream
 
 Shared Redis Streams publish/consume library for nestys microservices.
 
@@ -24,7 +24,7 @@ Your `RedisService` must implement the `IStreamRedis` interface (7 methods: `xad
 
 ```typescript
 // src/common/redis/redis.service.ts (excerpt)
-import { IStreamRedis, StreamEntry } from '@nestys/stream-bus';
+import { IStreamRedis, StreamEntry } from 'ms-event-stream';
 
 @Injectable()
 export class RedisService implements IStreamRedis, OnModuleInit {
@@ -61,7 +61,7 @@ See `src/stream-redis.interface.ts` for the full interface.
 ```typescript
 // src/common/streams/streams.module.ts
 import { Global, Module } from '@nestjs/common';
-import { StreamsModule, STREAM_REDIS } from '@nestys/stream-bus';
+import { StreamsModule, STREAM_REDIS } from 'ms-event-stream';
 import { RedisService } from '../redis/redis.service';
 
 @Global()
@@ -95,7 +95,7 @@ import {
   DeviceTokenRegisterPayload,
   DeviceTokenRemovePayload,
   NotificationDispatchPayload,
-} from '@nestys/stream-bus';
+} from 'ms-event-stream';
 
 @Injectable()
 export class NotificationPublisher {
@@ -181,7 +181,7 @@ You can also inject `StreamBusService` directly and call `publish()` with a stre
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { StreamBusService, StreamNames } from '@nestys/stream-bus';
+import { StreamBusService, StreamNames } from 'ms-event-stream';
 
 @Injectable()
 export class SomeService {
@@ -220,7 +220,7 @@ import {
   StreamNames,
   StreamConsumerHandle,
   NotificationDispatchPayload,
-} from '@nestys/stream-bus';
+} from 'ms-event-stream';
 
 @Injectable()
 export class NotificationDispatchConsumer implements OnModuleInit, OnModuleDestroy {
@@ -406,7 +406,7 @@ The shared package is mounted as a volume so all services pick up changes instan
 volumes:
   - ./src:/app/src
   - /app/node_modules
-  - ../shared/stream-bus:/app/node_modules/@nestys/stream-bus
+  - ../shared/stream-bus:/app/node_modules/ms-event-stream
 ```
 
 After editing the shared package, rebuild it:
