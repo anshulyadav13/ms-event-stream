@@ -1,6 +1,6 @@
 {
   "name": "@nestys/stream-bus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared Redis Streams publish/consume service for nestys microservices — standardized stream naming, typed payloads, consumer groups, DLQ, and crash recovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
