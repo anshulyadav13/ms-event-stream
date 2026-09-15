@@ -11,11 +11,7 @@ Provides standardized stream naming, typed payloads, consumer groups, crash reco
 ### 1. Install
 
 ```bash
-# Local development (file link)
-npm install file:../shared/stream-bus
-
-# After install, build the package:
-cd ../shared/stream-bus && npm run build
+npm install ms-event-stream
 ```
 
 ### 2. Implement `IStreamRedis` in your microservice's `RedisService`
@@ -399,23 +395,7 @@ redis-cli XRANGE notification:dispatch:dlq - +
 
 ## Local Development with Docker
 
-The shared package is mounted as a volume so all services pick up changes instantly:
-
-```yaml
-# docker-compose.dev.yml
-volumes:
-  - ./src:/app/src
-  - /app/node_modules
-  - ../shared/stream-bus:/app/node_modules/ms-event-stream
-```
-
-After editing the shared package, rebuild it:
-
-```bash
-cd shared/stream-bus && npm run build
-```
-
-All services will pick up the changes on their next file-watcher cycle — no container restart needed.
+The `ms-event-stream` package is installed from npm inside each service container. No shared-package volume is needed.
 
 ---
 
