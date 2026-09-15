@@ -1,0 +1,81 @@
+/**
+ * Standard stream names for all inter-service Redis Streams in the nestys
+ * platform.
+ *
+ * NAMING STANDARD (must be followed for all new streams):
+ *
+ *   Stream:         {consumer-service}:{resource}:{action}:stream
+ *   Consumer group:  {consumer-service}-{resource}-{action}-workers
+ *   DLQ:            {consumer-service}:{resource}:{action}:dlq
+ *
+ * When adding a new stream:
+ *   1. Add a static method here returning { stream, group, dlq }
+ *   2. Add a typed payload interface in stream-payloads.ts
+ *   3. Document which MS publishes and which MS consumes
+ */
+
+export interface StreamNameSet {
+  /** Redis Stream key. */
+  stream: string;
+  /** Consumer group name. */
+  group: string;
+  /** Dead-letter queue stream key (poison messages). */
+  dlq: string;
+}
+
+export class StreamNames {
+  /**
+   * Notification dispatch stream.
+   *
+   * Other microservices (user MS, auth MS, etc.) XADD dispatch requests to
+   * this stream. The notification MS consumes via a consumer group and
+   * processes each request (creates a Notification row, enqueues to the
+   * PUSH/EMAIL worker).
+   *
+   * Publisher: user MS, auth MS (any service that needs to send a notification)
+   * Consumer:  notification MS
+   */
+  static notificationDispatch(): StreamNameSet {
+    return {
+      stream: "notification:dispatch:stream",
+      group: "notification-workers",
+      dlq: "notification:dispatch:dlq",
+    };
+  }
+
+  /**
+   * FCM device token registration stream.
+   *
+   * The auth MS publishes to this stream when a user logs in or signs up
+   * with an fcmToken. The notification MS consumes and stores the token
+   * in its DeviceToken table so push notifications can be delivered.
+   *
+   * Publisher: auth MS (on login/signup with fcmToken)
+   * Consumer:  notification MS
+   */
+  static notificationDeviceTokenRegister(): StreamNameSet {
+    return {
+      stream: "notification:device-token:register:stream",
+      group: "notification-device-token-register-workers",
+      dlq: "notification:device-token:register:dlq",
+    };
+  }
+
+  /**
+   * FCM device token removal stream.
+   *
+   * The auth MS publishes to this stream when a user logs out or a token
+   * is explicitly removed. The notification MS consumes and deactivates
+   * the token in its DeviceToken table.
+   *
+   * Publisher: auth MS (on logout/token removal)
+   * Consumer:  notification MS
+   */
+  static notificationDeviceTokenRemove(): StreamNameSet {
+    return {
+      stream: "notification:device-token:remove:stream",
+      group: "notification-device-token-remove-workers",
+      dlq: "notification:device-token:remove:dlq",
+    };
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@nestys/stream-bus",
+  "version": "1.0.0",
+  "description": "Shared Redis Streams publish/consume service for nestys microservices — standardized stream naming, typed payloads, consumer groups, DLQ, and crash recovery",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0 || ^11.0.0",
+    "@nestjs/core": "^10.0.0 || ^11.0.0",
+    "ioredis": "^5.0.0",
+    "reflect-metadata": "^0.2.0"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@types/node": "^22.0.0",
+    "ioredis": "^5.0.0",
+    "reflect-metadata": "^0.2.0",
+    "typescript": "^5.0.0"
+  }
+}
