@@ -78,4 +78,22 @@ export class StreamNames {
       dlq: "notification:device-token:remove:dlq",
     };
   }
+
+  /**
+   * Notification broadcast stream.
+   *
+   * The user MS publishes to this stream for admin bulk/broadcast/location
+   * push sends. The notification MS consumes and either fetches device tokens
+   * for the provided userIds or sends an FCM topic/condition broadcast.
+   *
+   * Publisher: user MS (admin bulk/broadcast messages)
+   * Consumer:  notification MS
+   */
+  static notificationBroadcast(): StreamNameSet {
+    return {
+      stream: "notification:broadcast:stream",
+      group: "notification-broadcast-workers",
+      dlq: "notification:broadcast:dlq",
+    };
+  }
 }

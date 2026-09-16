@@ -42,6 +42,7 @@ export { IorRedisStreamAdapter } from "./ioredis-stream-adapter";
 export { StreamNames, StreamNameSet } from "./stream-names";
 export {
   NotificationDispatchPayload,
+  NotificationBroadcastPayload,
   DeviceTokenRegisterPayload,
   DeviceTokenRemovePayload,
 } from "./stream-payloads";

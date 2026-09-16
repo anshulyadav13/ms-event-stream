@@ -29,6 +29,8 @@ export interface NotificationDispatchPayload {
   channel: "PUSH" | "EMAIL";
   /** Idempotency key to prevent duplicate dispatches. */
   idempotencyKey: string;
+  /** Originating microservice (e.g. "auth", "user", "chat"). */
+  service?: string;
   /** Template ID to render (optional if title/body are provided directly). */
   templateId?: string;
   /** Template version (optional, defaults to latest). */
@@ -51,6 +53,15 @@ export interface NotificationDispatchPayload {
    * Must be a publicly accessible HTTPS URL.
    */
   imageUrl?: string;
+  /**
+   * Call push flag (PUSH channel only). When true, the notification MS
+   * routes the push as an incoming call: iOS devices are woken via an
+   * APNs VoIP (PushKit) push to their registered `voipToken` with header
+   * `apns-push-type: voip`, while Android devices receive a standard FCM
+   * push. When false/omitted, the push is a regular FCM notification to
+   * all FCM tokens.
+   */
+  callPush?: boolean;
 }
 
 /**
@@ -63,8 +74,14 @@ export interface NotificationDispatchPayload {
 export interface DeviceTokenRegisterPayload {
   /** Target user ID. */
   userId: number;
-  /** FCM token string. */
-  token: string;
+  /** FCM token string. Optional when `voipToken` is provided. */
+  token?: string;
+  /**
+   * APNs VoIP (PushKit) token for iOS call notifications. Optional.
+   * iOS devices register BOTH `token` (FCM, for regular pushes) and
+   * `voipToken` (PushKit, for incoming call pushes).
+   */
+  voipToken?: string;
   /** Unique device identifier. */
   deviceId?: string;
   /** Device platform: "android", "ios", or "web". */
@@ -83,6 +100,49 @@ export interface DeviceTokenRegisterPayload {
 export interface DeviceTokenRemovePayload {
   /** Target user ID. */
   userId: number;
-  /** FCM token string to deactivate. */
-  token: string;
+  /** FCM token string to deactivate. Optional when `voipToken` is provided. */
+  token?: string;
+  /** APNs VoIP (PushKit) token to deactivate. Optional. */
+  voipToken?: string;
+}
+
+/**
+ * Payload for the notification broadcast stream
+ * (StreamNames.notificationBroadcast()).
+ *
+ * Sent by the user MS for admin bulk/broadcast/location push sends.
+ * Consumed by the notification MS and either fanned out to a list of
+ * userIds or sent as an FCM topic/condition broadcast.
+ */
+export interface NotificationBroadcastPayload {
+  /** Delivery channel. Currently only PUSH is supported. */
+  channel: "PUSH" | "EMAIL";
+  /** Idempotency key to prevent duplicate broadcasts. */
+  idempotencyKey: string;
+  /** Originating microservice (e.g. "auth", "user", "chat"). */
+  service?: string;
+  /** Direct notification title (bypasses template). */
+  title?: string;
+  /** Direct notification body (bypasses template). */
+  body: string;
+  /** Explicit list of target user IDs (used for bulk/location broadcasts). */
+  userIds?: number[];
+  /** FCM topic to broadcast to (alternative to userIds/condition). */
+  topic?: string;
+  /** FCM condition expression (alternative to userIds/topic). */
+  condition?: string;
+  /** Data payload sent with the FCM notification. */
+  data?: Record<string, unknown>;
+  /** Image URL for the push notification. */
+  imageUrl?: string;
+  /** User locale (unused for ad-hoc broadcasts, present for future use). */
+  locale?: string;
+  /**
+   * Call push flag (PUSH channel only). When true and `userIds` are
+   * provided, iOS devices are woken via an APNs VoIP (PushKit) push to
+   * their registered `voipToken` (`apns-push-type: voip`) and Android
+   * devices receive a standard FCM push. Ignored for topic/condition
+   * broadcasts — APNs has no topic support.
+   */
+  callPush?: boolean;
 }
