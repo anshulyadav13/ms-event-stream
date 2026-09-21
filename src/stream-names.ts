@@ -96,4 +96,29 @@ export class StreamNames {
       dlq: "notification:broadcast:dlq",
     };
   }
+
+  /**
+   * Generic method to generate stream names following the naming convention.
+   *
+   * This allows any microservice to create streams without updating the package.
+   * Follows the convention: {consumer-service}:{resource}:{action}:stream
+   *
+   * @param consumerService - The microservice that consumes the stream (e.g., "media-processing", "notification")
+   * @param resource - The domain resource being acted on (e.g., "video", "image", "device-token")
+   * @param action - What's being done (e.g., "requested", "completed", "failed", "register")
+   * @returns StreamNameSet with stream, group, and dlq names
+   *
+   * Example:
+   *   StreamNames.custom('media-processing', 'video', 'requested')
+   *   → { stream: 'media-processing:video:requested:stream',
+   *       group: 'media-processing-video-requested-workers',
+   *       dlq: 'media-processing:video:requested:dlq' }
+   */
+  static custom(consumerService: string, resource: string, action: string): StreamNameSet {
+    const stream = `${consumerService}:${resource}:${action}:stream`;
+    const group = `${consumerService}-${resource}-${action}-workers`;
+    const dlq = `${consumerService}:${resource}:${action}:dlq`;
+
+    return { stream, group, dlq };
+  }
 }
