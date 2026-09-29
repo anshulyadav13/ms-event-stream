@@ -43,6 +43,14 @@ export class StreamNames {
     };
   }
 
+  static notificationExceptionEmail(): StreamNameSet {
+    return {
+      stream: "notification:exception-email:send:stream",
+      group: "notification-exception-email-send-workers",
+      dlq: "notification:exception-email:send:dlq",
+    };
+  }
+
   /**
    * FCM device token registration stream.
    *

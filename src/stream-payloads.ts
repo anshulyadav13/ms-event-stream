@@ -15,6 +15,19 @@
  *   4. The interface must be exported from index.ts
  */
 
+export interface NotificationExceptionEmailPayload {
+  serviceName: string;
+  statusCode: number;
+  path: string;
+  method: string;
+  message: string;
+  stack?: string;
+  timestamp: string;
+  userId?: number;
+  email?: string;
+  username?: string;
+}
+
 /**
  * Payload for the notification dispatch stream
  * (StreamNames.notificationDispatch()).
