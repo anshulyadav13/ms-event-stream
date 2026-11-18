@@ -1,6 +1,6 @@
 # ms-event-stream
 
-Shared Redis Streams publish/consume library for nestys microservices.
+Shared Redis Streams publish/consume library for NestJS microservices.
 
 Provides standardized stream naming, typed payloads, consumer groups, crash recovery (XAUTOCLAIM), and dead-letter queues (DLQ) — so every microservice communicates the same way without duplicating Redis Streams logic.
 
@@ -372,4 +372,4 @@ The `ms-event-stream` package is installed from npm inside each service containe
 
 ## License
 
-Proprietary — © nestys. All rights reserved.
+MIT — see the package registry page for details.

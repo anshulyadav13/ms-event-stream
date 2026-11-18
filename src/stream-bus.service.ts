@@ -8,7 +8,7 @@ import {
 } from "./stream-redis.interface";
 
 /**
- * StreamBusService — standardized Redis Streams publish/consume for nestys.
+ * StreamBusService — standardized Redis Streams publish/consume.
  *
  * This service provides a single, consistent API for all microservices to
  * communicate via Redis Streams. It handles:

@@ -1,6 +1,5 @@
 /**
- * Standard stream names for all inter-service Redis Streams in the nestys
- * platform.
+ * Standard stream names for all inter-service Redis Streams.
  *
  * NAMING STANDARD (must be followed for all new streams):
  *

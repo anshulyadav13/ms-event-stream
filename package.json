@@ -1,7 +1,7 @@
 {
   "name": "ms-event-stream",
   "version": "1.1.0",
-  "description": "Shared Redis Streams publish/consume service — standardized stream naming, typed payloads, consumer groups, DLQ, and crash recovery",
+  "description": "Shared Redis Streams publish/consume service \u2014 standardized stream naming, typed payloads, consumer groups, DLQ, and crash recovery",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -12,9 +12,9 @@
     "dist"
   ],
   "peerDependencies": {
-    "@nestjs/common": "^10.0.0 || ^11.0.0",
-    "@nestjs/core": "^10.0.0 || ^11.0.0",
-    "ioredis": "^5.0.0",
+    "@nestjs/common": "^10.0.0 || ^11.0.0 || ^12.0.0",
+    "@nestjs/core": "^10.0.0 || ^11.0.0 || ^12.0.0",
+    "ioredis": "^5.0.0 || ^6.0.0",
     "reflect-metadata": "^0.2.0"
   },
   "devDependencies": {
@@ -24,5 +24,6 @@
     "ioredis": "6.0.0",
     "reflect-metadata": "0.2.2",
     "typescript": "6.0.3"
-  }
+  },
+  "license": "MIT"
 }

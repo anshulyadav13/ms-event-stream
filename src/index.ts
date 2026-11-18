@@ -1,7 +1,7 @@
 /**
  * ms-event-stream — Shared Redis Streams publish/consume service
  *
- * Provides a standardized, typed way for nestys microservices to communicate
+ * Provides a standardized, typed way for NestJS microservices to communicate
  * via Redis Streams with consumer groups, crash recovery (XAUTOCLAIM), and
  * dead-letter queues (DLQ).
  *
@@ -9,7 +9,7 @@
  * STREAM NAMING STANDARD
  * ─────────────────────────────────────────────────────────────────────────
  *
- * All inter-service Redis Streams across nestys microservices MUST follow
+ * All inter-service Redis Streams across microservices MUST follow
  * this naming convention:
  *
  *   Stream:        {consumer-service}:{resource}:{action}:stream
